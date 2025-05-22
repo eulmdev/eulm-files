@@ -17,7 +17,7 @@ type UploadResponseBody struct {
 }
 
 var args = parseArgs()
-var version = "v1.1.0"
+var version = "v1.0.0"
 var apiUrl = "https://files.eulm.dev"
 
 func parseArgs() []string {

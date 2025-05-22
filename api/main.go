@@ -1,15 +1,14 @@
 package main
 
 import (
-    "database/sql"
-    "fmt"
-    "net/http"
-    "os"
-    "regexp"
+	"database/sql"
+	"fmt"
+	"net/http"
+	"os"
+	"regexp"
 
-    "github.com/gorilla/mux"
-    "github.com/joho/godotenv"
-    _ "github.com/mattn/go-sqlite3"
+	"github.com/gorilla/mux"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var db *sql.DB
@@ -18,33 +17,29 @@ var masterKey string
 var port = ":8080"
 
 func loadEnvVars() {
-    if err := godotenv.Load(".env"); err != nil {
-        logger.Fatal("Error loading .env files")
-    }
+	var ok bool
+	if masterKey, ok = os.LookupEnv("EULM_FILES_MASTER_KEY"); !ok {
+		logger.Fatal("Environment variable EULM_FILES_MASTER_KEY not found")
+	}
 
-    var ok bool
-    if masterKey, ok = os.LookupEnv("EULM_FILES_MASTER_KEY"); !ok {
-        logger.Fatal("Environment variable EULM_FILES_MASTER_KEY not found")
-    }
+	if portVar := os.Getenv("EULM_FILES_PORT"); regexp.MustCompile(`^:\d{4}$`).MatchString(portVar) {
+		port = portVar
+	}
 
-    if portVar := os.Getenv("EULM_FILES_PORT"); regexp.MustCompile(`^:\d{4}$`).MatchString(portVar) {
-        port = portVar
-    }
-
-    logger.Info("Loaded variables from .env files")
+	logger.Info("Loaded variables from .env files")
 }
 
 func initDB() {
-    var err error
+	var err error
 
-    if db, err = sql.Open("sqlite3", "db/main.db"); err != nil {
-        logger.Fatal("Cannot open database:", err.Error())
-    }
-    if err = db.Ping(); err != nil {
-        logger.Fatal("Cannot connect to database:", err.Error())
-    }
+	if db, err = sql.Open("sqlite3", "db/main.db"); err != nil {
+		logger.Fatal("Cannot open database:", err.Error())
+	}
+	if err = db.Ping(); err != nil {
+		logger.Fatal("Cannot connect to database:", err.Error())
+	}
 
-    if _, err = db.Exec(`
+	if _, err = db.Exec(`
         CREATE TABLE IF NOT EXISTS files (
             id TEXT NOT NULL,
             file_name TEXT NOT NULL,
@@ -57,41 +52,41 @@ func initDB() {
             permissions INTEGER NOT NULL
         );
     `); err != nil {
-        logger.Fatal("Cannot create tables:", err.Error())
-    }
+		logger.Fatal("Cannot create tables:", err.Error())
+	}
 
-    if _, err = db.Exec("DELETE FROM users WHERE username = ?", "Master"); err != nil {
-        logger.Fatal("Error deleting existing Master user(s):", err.Error())
-    }
-    if _, err = db.Exec("INSERT INTO users (api_key, username, permissions) VALUES (?, ?, ?)", masterKey, "Master", 3); err != nil {
-        logger.Fatal("Error inserting new Master user:", err.Error())
-    }
+	if _, err = db.Exec("DELETE FROM users WHERE username = ?", "Master"); err != nil {
+		logger.Fatal("Error deleting existing Master user(s):", err.Error())
+	}
+	if _, err = db.Exec("INSERT INTO users (api_key, username, permissions) VALUES (?, ?, ?)", masterKey, "Master", 3); err != nil {
+		logger.Fatal("Error inserting new Master user:", err.Error())
+	}
 
-    logger.Info("Database initialised successfully")
+	logger.Info("Database initialised successfully")
 }
 
 func closeDB() {
-    if err := db.Close(); err != nil {
-        logger.Fatal("Error closing database connection:", err.Error())
-    }
+	if err := db.Close(); err != nil {
+		logger.Fatal("Error closing database connection:", err.Error())
+	}
 }
 
 func main() {
-    loadEnvVars()
+	loadEnvVars()
 
-    initDB()
-    defer closeDB()
+	initDB()
+	defer closeDB()
 
-    r := mux.NewRouter()
+	r := mux.NewRouter()
 
-    handleApi(r)
+	handleApi(r)
 
-    r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        respondJSON(w, http.StatusNotFound, map[string]string{"message": "Route not found"})
-    })
+	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		respondJSON(w, http.StatusNotFound, map[string]string{"message": "Route not found"})
+	})
 
-    logger.Info(fmt.Sprintf("Server starting on port %s", port))
-    if err := http.ListenAndServe(port, r); err != nil {
-        logger.Fatal("Error starting server:", err.Error())
-    }
+	logger.Info(fmt.Sprintf("Server starting on port %s", port))
+	if err := http.ListenAndServe(port, r); err != nil {
+		logger.Fatal("Error starting server:", err.Error())
+	}
 }
