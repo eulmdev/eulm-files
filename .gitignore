@@ -1,0 +1,7 @@
+# editor config
+.vscode
+.idea
+
+# builds & database
+*.exe
+db
